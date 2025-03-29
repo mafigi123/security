@@ -1,5 +1,7 @@
 Flask
 flask-login
+wheel
+dlib
 opencv-python
 numpy
 face-recognition
