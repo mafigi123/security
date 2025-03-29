@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+    <h2 class="text-center text-primary fw-bold mt-4">History of Detected Objects</h2>
+
+    <!-- Table to Display Logs -->
+    <table class="table table-bordered table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Detected Objects</th>
+                <th>Datetime</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Loop through each log entry and display it in a table row -->
+            {% for log in logs %}
+                <tr>
+                    <td>{{ log.name }}</td>
+                    <td>
+                        <!-- Join the detected objects with commas if there are multiple -->
+                        {{ log.detected_objects | join(", ") }}
+                    </td>
+                    <td>{{ log.datetime }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

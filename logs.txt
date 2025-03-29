@@ -1,0 +1,19 @@
+[
+    {
+        "name": "joseline",
+        "datetime": "2025-03-27 19:18:20",
+        "detected_objects": [
+            "book",
+            "pen",
+            "tie"
+        ]
+    },
+    {
+        "name": "aime",
+        "datetime": "2025-03-27 19:20:44",
+        "detected_objects": [
+            "laptop",
+            "skateboard"
+        ]
+    }
+]

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card mx-auto p-4" style="max-width: 400px;">
+    <h3 class="text-center text-primary">Login</h3>
+    {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+    <form method="POST">
+        <input type="text" class="form-control my-2" name="reg_no" placeholder="Registration Number" required>
+        <input type="password" class="form-control my-2" name="password" placeholder="Password" required>
+        <button type="submit" class="btn btn-primary w-100">Login</button>
+    </form>
+</div>
+{% endblock %}

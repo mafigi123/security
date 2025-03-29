@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Main Content -->
+<div class="container">
+    <p class="text-center">Lab Security</p>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card p-3">
+                <h4 class="card-title">Total Users</h4>
+                <div class="result-box">{{ total_users }}</div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card p-3">
+                <h4 class="card-title">Total Tools</h4>
+                <div class="result-box">{{ total_tools }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
