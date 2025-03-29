@@ -52,6 +52,37 @@ def load_user(user_id):
             return User(user["reg_no"], user["name"], user["password"])
     return None
 
+
+
+
+
+UPLOAD_FOLDER = './'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+@app.route('/upload_file', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({"status": "error", "message": "No valid file uploaded."})
+
+    file = request.files['file']
+    
+    if file.filename == '':
+        return jsonify({"status": "error", "message": "No selected file."})
+
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], 'attendance.txt')
+
+    try:
+        file.save(file_path)
+        return jsonify({"status": "success", "message": "File uploaded successfully!", "path": file_path})
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Failed to save the file: {str(e)}"})
+
+
+
+
+
+
+
 # Home Page
 @app.route("/")
 @login_required
