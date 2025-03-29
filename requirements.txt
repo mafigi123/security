@@ -1,0 +1,7 @@
+Flask
+flask-login
+opencv-python
+numpy
+face-recognition
+requests
+datetime
