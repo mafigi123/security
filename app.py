@@ -96,7 +96,7 @@ def home():
 @app.route("/logs")
 @login_required
 def logs():
-    with open("logs.txt", "r") as file:
+    with open("attendance.txt", "r") as file:
         logs_data = json.load(file)  # Read and parse the JSON data from the logs file
     return render_template("logs.html", logs=logs_data)
 
