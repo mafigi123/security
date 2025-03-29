@@ -1,119 +1,175 @@
-from flask import Flask, render_template, request, jsonify
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-import time  # To track email cooldown
-from device_manager import add_device, update_device, get_devices
+from flask import Flask, render_template, request, redirect, url_for, jsonify, session
+import json
+import os
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+
 app = Flask(__name__)
+app.secret_key = "supersecretkey"
 
-# Dictionary to store last sent time for each error type
-last_email_sent = {}
+# Initialize Login Manager
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = "login"  # Default login page
 
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-@app.route('/analyze', methods=['POST'])
-def analyze():
-    try:
-        data = request.get_json()
-        signal_power = float(data['signal'])
-
-        # Determine fault type based on signal power
-        if -10 >= signal_power > -29:
-            detected = "No Fault"
-        elif -29 >= signal_power > -33:
-            detected = "Fiber Deformation"
-            sendMailIfNeeded("Fiber Deformation")
-        elif -34 >= signal_power > -40:
-            detected = "Attenuation or High Loss"
-            sendMailIfNeeded("Attenuation or High Loss")
-        else:  # signal_power <= -41
-            detected = "Fiber Cut"
-            sendMailIfNeeded("Fiber Cut")
-
-        result = {
-            "detected": detected,
-            "probabilities": {
-                "No Fault": 100 if detected == "No Fault" else 0,
-                "Fiber Deformation": 100 if detected == "Fiber Deformation" else 0,
-                "High Loss": 100 if detected == "Attenuation or High Loss" else 0,
-                "Fiber Cut": 100 if detected == "Fiber Cut" else 0,
-            },
-            "interpretation": f"Detected issue: {detected}."
-        }
-
-        return jsonify(result)
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+# File paths
+USER_FILE = "users.json"
+TOOL_FILE = "tools.json"
+LOGS_FILE = "logs.json"
 
 
-@app.route('/devices')
-def devices_page():
-    return render_template('devices.html')
+# Ensure JSON files exist
+def init_json(file):
+    if not os.path.exists(file):
+        with open(file, "w") as f:
+            json.dump([], f)
 
-@app.route('/get_devices', methods=['GET'])
-def get_devices_route():
-    return jsonify(get_devices())
+init_json(USER_FILE)
+init_json(TOOL_FILE)
+init_json(LOGS_FILE)
 
-@app.route('/add_device', methods=['POST'])
-def add_device_route():
-    data = request.get_json()
-    success = add_device(data['device_id'], data['device_name'], data['address'])
-    return jsonify({"success": success, "message": "Device added" if success else "Device ID already exists"})
+# Load and save JSON data
+def load_json(file):
+    with open(file, "r") as f:
+        return json.load(f)
 
-@app.route('/update_device', methods=['POST'])
-def update_device_route():
-    data = request.get_json()
-    success = update_device(data['device_id'], data['device_name'], data['address'])
-    return jsonify({"success": success, "message": "Device updated" if success else "Device not found"})
+def save_json(file, data):
+    with open(file, "w") as f:
+        json.dump(data, f, indent=4)
+
+# User Model
+class User(UserMixin):
+    def __init__(self, id, name, password):
+        self.id = id
+        self.name = name
+        self.password = password
+
+# Load Users
+@login_manager.user_loader
+def load_user(user_id):
+    users = load_json(USER_FILE)
+    for user in users:
+        if user["reg_no"] == user_id:
+            return User(user["reg_no"], user["name"], user["password"])
+    return None
+
+# Home Page
+@app.route("/")
+@login_required
+def home():
+    users = load_json(USER_FILE)
+    tools = load_json(TOOL_FILE)
+    total_users = len(users)
+    total_tools = len(tools)
+    return render_template("index.html", user=current_user, total_users=total_users, total_tools=total_tools)
+
+@app.route("/logs")
+@login_required
+def logs():
+    with open("logs.txt", "r") as file:
+        logs_data = json.load(file)  # Read and parse the JSON data from the logs file
+    return render_template("logs.html", logs=logs_data)
 
 
-def sendMailIfNeeded(error_type):
-    """ Sends an email only if 2 minutes have passed since the last email for this error. """
-    global last_email_sent
-    current_time = time.time()
 
-    # Check if an email was sent before and if 2 minutes have passed
-    if error_type in last_email_sent:
-        time_since_last_email = current_time - last_email_sent[error_type]
-        if time_since_last_email < 20:  # 120 seconds = 2 minutes
-            print(f"Skipping email for {error_type}, last email sent {time_since_last_email:.1f} seconds ago.")
-            return
+# Login Page
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        reg_no = request.form["reg_no"]
+        password = request.form["password"]
+        users = load_json(USER_FILE)
 
-    # Update last sent time and send the email
-    last_email_sent[error_type] = current_time
-    sendMail(error_type)
+        for user in users:
+            if user["reg_no"] == reg_no and user["password"] == password:
+                login_user(User(user["reg_no"], user["name"], user["password"]))
+                return redirect(url_for("home"))
 
+    return render_template("login.html", error="Invalid credentials!" if request.method == "POST" else None)
 
-def sendMail(text):
-    """ Function to send an email alert """
-    sender_email = 'johncthe1@gmail.com'  # Replace with your email
-    receiver_email = 'jcturisangait1996@gmail.com'  # Replace with receiver's email
-    subject = 'Fiber Optic Fault Detected'
-    body = f"Alert: {text} detected in the fiber optic network."
+# Logout Route
+@app.route("/logout")
+@login_required  # Protect logout route to ensure only logged-in users can log out
+def logout():
+    logout_user()
+    return redirect(url_for("login"))
 
-    password = 'lewdmjrjmwkfdgpb'  # Replace with your actual email password or App Password
+# Manage Users
+@app.route("/users", methods=["GET", "POST"])
+@login_required  # Protect this route to ensure only logged-in users can access it
+def users_page():
+    users = load_json(USER_FILE)
 
-    message = MIMEMultipart()
-    message['From'] = sender_email
-    message['To'] = receiver_email
-    message['Subject'] = subject
-    message.attach(MIMEText(body, 'plain'))
+    if request.method == "POST":
+        name = request.form.get("name").strip()
+        reg_no = request.form.get("reg_no").strip()
 
-    try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(sender_email, password)
-        server.sendmail(sender_email, receiver_email, message.as_string())
-        print("Email sent successfully!")
+        if name and reg_no:
+            if not any(user["reg_no"] == reg_no for user in users):  # Prevent duplicates
+                users.append({"name": name, "reg_no": reg_no})
+                save_json(USER_FILE, users)
+        return redirect(url_for("users_page"))
 
-    except Exception as e:
-        print(f"Failed to send email: {e}")
+    return render_template("users.html", users=users)
 
-    finally:
-        server.quit()
+# Edit User
+@app.route("/edit_user/<reg_no>", methods=["POST"])
+@login_required
+def edit_user(reg_no):
+    users = load_json(USER_FILE)
+    for user in users:
+        if user["reg_no"] == reg_no:
+            user["name"] = request.form.get("name").strip()
+            save_json(USER_FILE, users)
+            break
+    return redirect(url_for("users_page"))
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+# Delete User
+@app.route("/delete_user/<reg_no>")
+@login_required
+def delete_user(reg_no):
+    users = load_json(USER_FILE)
+    users = [user for user in users if user["reg_no"] != reg_no]
+    save_json(USER_FILE, users)
+    return redirect(url_for("users_page"))
+
+# Manage Tools
+@app.route("/tools", methods=["GET", "POST"])
+@login_required  # Protect this route to ensure only logged-in users can access it
+def tools_page():
+    tools = load_json(TOOL_FILE)
+
+    if request.method == "POST":
+        name = request.form.get("name").strip()
+        tool_id = request.form.get("id").strip()
+
+        if name and tool_id:
+            if not any(tool["id"] == tool_id for tool in tools):  # Prevent duplicates
+                tools.append({"name": name, "id": tool_id})
+                save_json(TOOL_FILE, tools)
+        return redirect(url_for("tools_page"))
+
+    return render_template("tools.html", tools=tools)
+
+# Edit Tool
+@app.route("/edit_tool/<tool_id>", methods=["POST"])
+@login_required
+def edit_tool(tool_id):
+    tools = load_json(TOOL_FILE)
+    for tool in tools:
+        if tool["id"] == tool_id:
+            tool["name"] = request.form.get("name").strip()
+            save_json(TOOL_FILE, tools)
+            break
+    return redirect(url_for("tools_page"))
+
+# Delete Tool
+@app.route("/delete_tool/<tool_id>")
+@login_required
+def delete_tool(tool_id):
+    tools = load_json(TOOL_FILE)
+    tools = [tool for tool in tools if tool["id"] != tool_id]
+    save_json(TOOL_FILE, tools)
+    return redirect(url_for("tools_page"))
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
