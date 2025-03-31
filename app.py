@@ -91,7 +91,17 @@ def home():
     tools = load_json(TOOL_FILE)
     total_users = len(users)
     total_tools = len(tools)
-    return render_template("index.html", user=current_user, total_users=total_users, total_tools=total_tools)
+    
+    # Load attendance data safely
+    try:
+        with open("attendance.txt", "r") as file:
+            attendance_data = json.load(file)
+            detected_objects = [obj for entry in attendance_data for obj in entry.get("detected_objects", [])]
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print("Error loading attendance data:", e)
+        detected_objects = []  # Ensure it's always defined
+        
+    return render_template("index.html", user=current_user, total_users=total_users, total_tools=total_tools, detected_objects=detected_objects)
 
 @app.route("/logs")
 @login_required
