@@ -2,23 +2,69 @@
 
 {% block content %}
 <!-- Main Content -->
-<div class="container">
-    <p class="text-center">Lab Security</p>
+<div class="container mt-5">
+    <h2 class="text-center fw-bold mb-4">Lab Security Dashboard</h2>
 
-    <div class="row">
-        <div class="col-md-6">
-            <div class="card p-3">
-                <h4 class="card-title">Total Users</h4>
-                <div class="result-box">{{ total_users }}</div>
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="card shadow-lg border-0 rounded-3 text-center p-4">
+                <h4 class="card-title fw-semibold">Total Users</h4>
+                <div class="result-box display-6 text-primary">{{ total_users }}</div>
             </div>
         </div>
-        <div class="col-md-6">
-            <div class="card p-3">
-                <h4 class="card-title">Total Tools</h4>
-                <div class="result-box">{{ total_tools }}</div>
+        <div class="col-md-5">
+            <div class="card shadow-lg border-0 rounded-3 text-center p-4">
+                <h4 class="card-title fw-semibold">Total Tools</h4>
+                <div class="result-box display-6 text-success">{{ total_tools }}</div>
             </div>
         </div>
     </div>
+
+    <!-- Chart Section -->
+    <div class="mt-5">
+        <h3 class="text-center fw-bold">Detected Objects Overview</h3>
+        <canvas id="attendanceChart"></canvas>
+    </div>
 </div>
 
+<!-- Include Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // Data from Python (Replace this with data passed from Flask)
+        const detectedObjects = {{ detected_objects | tojson }};
+        
+        // Count occurrences of each detected object
+        const objectCounts = {};
+        detectedObjects.forEach(obj => {
+            objectCounts[obj] = (objectCounts[obj] || 0) + 1;
+        });
+
+        const labels = Object.keys(objectCounts);
+        const data = Object.values(objectCounts);
+
+        // Create Chart
+        const ctx = document.getElementById("attendanceChart").getContext("2d");
+        new Chart(ctx, {
+            type: "bar",
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: "Number of Detections",
+                    data: data,
+                    backgroundColor: ["#007bff", "#28a745", "#dc3545", "#ffc107", "#17a2b8"],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    });
+</script>
 {% endblock %}
